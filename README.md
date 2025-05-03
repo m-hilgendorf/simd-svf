@@ -9,10 +9,15 @@ A ZDF/TPT state variable filter can be computed as a pair of matrix multiplicati
 
 #### Inputs
 $$
-  F_n: \text{ Normalized Frequency} \\
-  Q: \text{ Q factor } \\
+  F_n: \text{ Normalized Frequency}
+$$
+$$
+  Q: \text{ Q factor }
+$$
+$$
   s_1, s_2: \text{state variables, initialized to 0}
 $$
+
 #### Formula
 $$
   \text{ff} = \tan(F_n \frac{pi}{2})
@@ -66,7 +71,9 @@ $$
 In [the Art of VA Filter Design](https://www.native-instruments.com/fileadmin/ni_media/downloads/pdf/VAFilterDesign_2.1.0.pdf), Vadim Zavalishin gives a discretization of a 2nd order SVF. He uses some different variable namings, so I will use different terms. Our control inputs are normalized frequency and Q factor.
 
 $$
-F_n : \text{Normalized Frequency} = \omega_c T/ 2\pi \\
+F_n : \text{Normalized Frequency} = \omega_c T/ 2\pi
+$$
+$$
 Q: \text{Q factor} = \frac{1}{2R}
 $$
 
@@ -77,7 +84,9 @@ I prefer normalized frequency to radial frequency and sampling interval as it ma
 There are two internal coefficients worth computing up front, which I will call $\text{ff}$ and $\text{fb}$ for "feed forward" and "feed back". The feed forward coefficient is the gain applied at each integrator (what Zavalishin refers to as $g$) and the feedback coefficient is the gain applied to the feedback path from the bandpass output ($2R = 1/Q$).
 
 $$
-  \text{ff} = \tan(F_n \frac{\pi}{2}) \\
+  \text{ff} = \tan(F_n \frac{\pi}{2})
+$$
+$$
   \text{fb} = \frac{1}{Q}
 $$
 
@@ -86,9 +95,13 @@ $$
 Zavalishin derives the system of equations for the highpass, bandpass, and lowpass outputs of the SVF:
 
 $$
-y_{hp} = x - \text{fb } y_{bp} - y_{lp} \\
-y_{bp} = \text{ff } y_{hp} + s_1 \\
+y_{hp} = x - \text{fb } y_{bp} - y_{lp}
+$$
+$$
+y_{bp} = \text{ff } y_{hp} + s_1
+$$
 y_{lp} = \text{ff } y_{bp} + s_2
+$$
 $$
 
 The problem with this system of equations is that it contains zero-delay feedback loops. To realize it in code we need to solve this system of equations for one of the $y$ variables.
@@ -138,7 +151,10 @@ $$
 
 The matrix formulation is useful because it removes all data dependencies when computing the outputs, which on paper should improve instruction-level parallelism.
 
-We can also formulate the state update as a matrix multiplication using the rows of the coefficient matrix above, call it $A$.
+
+We can also formulate the state update as a matrix multiplication using the rows of the coefficient matrix above, call it $A$ .
+
+<!-- comment for github -->
 
 $$
 \begin{pmatrix}
@@ -148,7 +164,7 @@ $$
 =
 \begin{pmatrix}
   \text{ff } A_{11...13} + A_{21...23} \\
-  \text{ff } A_{21...23} + A_{31...33}
+  \text{ff } A_{21...23} + A_{31...33} \\
 \end{pmatrix}
 \begin{pmatrix}
   x \\
@@ -156,3 +172,5 @@ $$
   s_2 \\
 \end{pmatrix}
 $$
+
+<!-- comment for github -->
