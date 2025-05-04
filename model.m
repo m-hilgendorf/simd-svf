@@ -100,7 +100,7 @@ function y = multival (x, Fn, Q)
   s2 = ff .* bpf + lpf;
 
   %% Unroll.
-  a = bpf;  % TODO: other filte rshapes
+  a = bpf;  % TODO: other filter shapes
   b =  a(2) .* s1 +  a(3) .* s2 + [0, 0, 0,  a(1)];
   c = s1(2) .* s1 + s1(3) .* s2 + [0, 0, 0, s1(1)];
   d = s2(2) .* s1 + s2(3) .* s2 + [0, 0, 0, s2(1)];
