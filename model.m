@@ -37,31 +37,8 @@ function y = scalar (x, Fn, Q)
   endfor
 endfunction
 
-%% Matrix implementation.
-%%
-%% Arguments:
-%%  - x: input signal
-%%  - Fn: normalized frequency.
-%%  - Q: Q-factor (resonance = 1/2Q). Should clamped in the range [0.5; 10)
-%%
-%% Reference:
-%%    This implementation is based on the discretization of the SVF found in "The Art of VA Filter
-%%    Design" by Vadim Zavalishin. His TPT approach works by discretizing the integrators in the
-%%    analog topology and then algebraically resolving the zero-delay-feedback loops by solving the
-%%    system of equations by hand.
-%%
-%%    The matrix formulation is derived by solving for the highpass, bandpass, and lowpass outputs
-%%    independently to create the coefficient matrix.
-%%
-%% There are a handful of useful optimizations that this prototype can be used to design:
-%%  - The tan(Fn * pi / 2) call can be replaced with an approximation. Bad approximations show up
-%%    as errors in the cutoff frequency, usually worse the closer to Nyquist.
-%%  - There are no data dependencies on any variable (input, output, or state).
-%%  - If the desired output is highpass/bandpass/lowpass, the matrix multiply Az can be replaced
-%%    with a dot product of the corresponding shape dot(A(1), z) for highpass, A(2) for bandpass,
-%%    A(3) for lowpass.
-%%  - The matrix multiply can be "unrolled" to compute 2 outputs at the same time.
-%%
+%% Implementation of the scalar version using matrix arithmetic for the filtering and state updates
+%% in order to remove the data dependencies.
 function y = matrix (x, Fn, Q)
   %% Initialize y
   y = zeros(3, length(x));
@@ -101,6 +78,45 @@ function y = matrix (x, Fn, Q)
   endfor
 endfunction
 
+%% Same as the matrix implementation, but instead of computing all outputs at once we pre-compute
+%% the filter coefficients and unroll the result to compute two outputs at once.
+function y = multival (x, Fn, Q)
+  y = zeros(1, length(x));
+
+  %% Compute feedforward/feedback coefficients
+  fb = 1 / Q
+  ff = tan(Fn * pi / 2)
+
+  %% Compute overall gain
+  gain = 1 / (1 + ff / Q + ff * ff)
+
+  %% Compute the coefficient vectors.
+  hpf = gain .* [1, -(ff + fb), -1, 0 ];
+  bpf = gain .* [ff, 1, -ff, 0 ];
+  lpf = gain .* [ff * ff, ff, 1 + fb, 0 ];
+
+  %% Compute the state update vectors.
+  s1 = ff .* hpf + bpf;
+  s2 = ff .* bpf + lpf;
+
+  %% Unroll.
+  a = bpf;  % TODO: other filte rshapes
+  b =  a(2) .* s1 +  a(3) .* s2 + [0, 0, 0,  a(1)];
+  c = s1(2) .* s1 + s1(3) .* s2 + [0, 0, 0, s1(1)];
+  d = s2(2) .* s1 + s2(3) .* s2 + [0, 0, 0, s2(1)];
+
+  %% Do the filtering
+  s = [0, 0]
+  for m = 0:(length(x)/2 - 1)
+    n = m * 2 + 1;
+    z = [x(n), s(1), s(2), x(n + 1)];
+    y(n)     = dot(a, z);
+    y(n + 1) = dot(b, z);
+    s(1)     = dot(c, z);
+    s(2)     = dot(d, z);
+  endfor
+endfunction
+
 function H = magnitude(y)
   H = fft(y)(1:length(y)/2);
   H = 20*log10(abs(H));
@@ -111,12 +127,10 @@ x = zeros(1, 512);
 x(1) = 1;
 
 % filter with some parameters
-y = matrix(x, 0.5, 5.0);
+y = multival(x, 0.5, 1.0);
 
 % plot hp/bp/lp outputs
-hp = magnitude(y(1, :));
-bp = magnitude(y(2, :));
-lp = magnitude(y(3, :));
-f  = linspace(0,1,length(hp));
-plot(f, hp, f, bp, f, lp);
+Y  = magnitude(y);
+f  = linspace(0,1,length(Y));
+plot(f, Y);
 axis([0, 1, -24, 24])
